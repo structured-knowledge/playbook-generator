@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>playbook — sign in</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <main class="login">
+    <h1>playbook</h1>
+    <p class="muted">Enter the shared password to read the playbook.</p>
+    <form method="POST" action="/login.html">
+      <input type="password" name="password" placeholder="Password" autofocus aria-label="Password">
+      <button type="submit">Enter</button>
+    </form>
+    <p id="err" class="error" hidden>Wrong password — try again.</p>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get("e")) document.getElementById("err").hidden = false;
+  </script>
+</body>
+</html>

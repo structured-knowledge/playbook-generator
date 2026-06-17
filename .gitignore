@@ -43,5 +43,8 @@ htmlcov/
 # if you want to share the OpenSpec slash-commands with collaborators.
 .claude/
 
+# Throwaway spike code (validate-before-propose; deleted after).
+/spike/
+
 # macOS
 .DS_Store

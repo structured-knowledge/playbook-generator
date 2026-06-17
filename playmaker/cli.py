@@ -355,6 +355,35 @@ def plays_cmd(ctx, kind, tool, maturity):
             click.echo(f"    {link['type']} → {link['target']}")
 
 
+# --------------------------------------------------------------------------
+# Web publish — read-side UI snapshot (openspec: add-web-publish)
+# --------------------------------------------------------------------------
+
+@cli.command(name="publish")
+@click.option(
+    "--out", "out_dir", default="./site",
+    type=click.Path(file_okay=False, resolve_path=True),
+    help="Output directory for the static site (default: ./site).",
+)
+@click.pass_context
+def publish_cmd(ctx, out_dir):
+    """Render a readable static snapshot of the playbook to OUT.
+
+    A triggered, read-only snapshot (not synced to the vault): one page per
+    play, an index, client-side search, and a plays.json data file.
+    """
+    kb = _require_kb(ctx)
+    # Local import: keeps jinja2/markdown-it off the path for other commands.
+    from playmaker.publish import publish as build_site
+
+    result = build_site(kb, Path(out_dir))
+    click.echo(f"Published {result.play_count} plays → {result.out_dir}")
+    click.echo(
+        f"  serve it: python -m http.server -d {result.out_dir}  "
+        "(search/links need http://, not file://)"
+    )
+
+
 def main() -> int:
     cli()
     return 0

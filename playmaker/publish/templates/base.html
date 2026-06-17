@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}playbook{% endblock %}</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header class="site">
+    <a class="home" href="index.html">playbook</a>
+    <input id="search" type="search" placeholder="Search plays…" autocomplete="off" aria-label="Search plays">
+  </header>
+  <main>
+    <ul id="search-results" class="results" hidden></ul>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site"><span>playmaker · published snapshot</span></footer>
+  <script src="static/search.js"></script>
+  <script src="static/ask.js"></script>
+</body>
+</html>

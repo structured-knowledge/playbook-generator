@@ -1,0 +1,3 @@
+# Dependencies for the /api/query serverless function (stdlib otherwise).
+# certifi gives the function a CA bundle for TLS to the gateway.
+certifi

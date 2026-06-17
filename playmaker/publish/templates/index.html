@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Playbook — {{ count }} plays{% endblock %}
+{% block content %}
+<section class="ask">
+  <form id="ask-form">
+    <textarea id="ask-input" rows="2" placeholder="Ask the playbook a question…" aria-label="Ask the playbook"></textarea>
+    <button type="submit">Ask</button>
+  </form>
+  <div id="ask-answer" class="ask-answer" hidden></div>
+</section>
+<div id="default-view">
+  <h1>Playbook <span class="muted">· {{ count }} plays</span></h1>
+  <ul class="play-list">
+    {% for p in plays %}
+    <li class="play-item">
+      <a class="play-title" href="{{ p.url }}">{{ p.title }}</a>
+      {% if p.kind %}<span class="badge kind">{{ p.kind }}</span>{% endif %}
+      {% if p.maturity %}<span class="badge maturity {{ p.maturity }}">{{ p.maturity }}</span>{% endif %}
+      {% if p.contested %}<span class="badge contested">⚠ contested</span>{% endif %}
+      {% if p.why %}<p class="why-line">{{ p.why }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ play.title }}{% endblock %}
+{% block content %}
+<article class="play" id="default-view">
+  <nav class="crumbs"><a href="index.html">← all plays</a></nav>
+  <h1>{{ play.title }}</h1>
+  <div class="badges">
+    {% if play.kind %}<span class="badge kind">{{ play.kind }}</span>{% endif %}
+    {% if play.maturity %}<span class="badge maturity {{ play.maturity }}">{{ play.maturity }}</span>{% endif %}
+    {% if play.contested %}<span class="badge contested">⚠ contested</span>{% endif %}
+  </div>
+  {% if play.contested %}<div class="banner contested">This play is contested — under review.</div>{% endif %}
+  {% if play.why %}<blockquote class="why"><strong>Why:</strong> {{ play.why }}</blockquote>{% endif %}
+
+  <div class="body">{{ play.body_html | safe }}</div>
+
+  {% if play.tool_categories %}
+  <section class="tools">
+    <h2>Tools</h2>
+    <ul>{% for t in play.tool_categories %}<li>{{ t }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if play.related.typed or play.related.wikilinks %}
+  <section class="related">
+    <h2>Related</h2>
+    {% if play.related.typed %}
+    <ul class="typed">
+      {% for l in play.related.typed %}
+      <li><span class="rel">{{ l.type }}</span> →
+        {% if l.url %}<a href="{{ l.url }}">{{ l.title }}</a>{% else %}{{ l.title }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if play.related.wikilinks %}
+    <p class="mentions">Mentions:
+      {% for l in play.related.wikilinks %}<a href="{{ l.url }}">{{ l.title }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if play.sources %}
+  <section class="sources">
+    <h2>Sources</h2>
+    <ul>{% for s in play.sources %}<li>{{ s }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  <footer class="play-foot">
+    {% if play.updated %}Last updated {{ play.updated }}{% endif %}
+    {% if play.sources %} · {{ play.sources|length }} source{{ "s" if play.sources|length != 1 }}{% endif %}
+  </footer>
+</article>
+{% endblock %}
