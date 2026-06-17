@@ -20,13 +20,21 @@ import urllib.request
 from pathlib import Path
 
 MAX_BODY_CHARS = 1200          # per-play context budget (design.md D-C)
-MAX_TOKENS = 8192              # reasoning model needs headroom (spike D-A)
+MAX_TOKENS = 8192              # safe ceiling; headroom if a reasoning model is set
 _KEY_RE = re.compile(r"\[\[([^\]\|]+)(?:\|[^\]]*)?\]\]")
 
-PROMPT = """You are answering from a playbook. Use ONLY the plays below. Give a \
-concise, actionable answer. Cite each play you draw on inline as its key in \
-double brackets, exactly as shown, e.g. [[concepts/example]]. If the plays do \
-not cover the question, say so plainly.
+PROMPT = """You answer strictly from the playbook below. Rules:
+
+1. Use ONLY the plays provided — no outside knowledge.
+2. Give a concise, actionable answer.
+3. Cite each play you draw on inline as its key in double brackets, exactly as \
+shown, e.g. [[concepts/example]].
+4. Cite a play ONLY if it DIRECTLY addresses the question. Do not stretch a \
+loosely-related play to fit; a play on a different topic is not an answer.
+5. If no play directly addresses the question, do NOT improvise or cite a \
+tangential play. Say plainly that the playbook does not cover it and cite \
+nothing. You may name the closest related topic in one sentence, without \
+presenting it as the answer.
 
 QUESTION: {question}
 
@@ -77,7 +85,7 @@ def build_prompt(question: str, plays: list[dict]) -> str:
 def call_gateway(prompt: str) -> str:
     base = os.environ["GATEWAY_BASE"].rstrip("/")
     key = os.environ["GATEWAY_KEY"]
-    model = os.environ.get("GATEWAY_MODEL", "gemini-3.5-flash")
+    model = os.environ.get("GATEWAY_MODEL", "gemini-3.1-flash-lite")
     raw_model = model.split("/", 1)[1] if "/" in model else model
     payload = json.dumps(
         {

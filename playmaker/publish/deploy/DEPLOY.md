@@ -24,7 +24,7 @@ Then import the repo in Vercel (git integration auto-deploys on push).
 |-----|------|
 | `GATEWAY_BASE` | `https://litellm.tzetang.com/v1` (the **public** gateway) |
 | `GATEWAY_KEY` | the LiteLLM virtual key (`sk-…`) |
-| `GATEWAY_MODEL` | `gemini-3.5-flash` (lowercase) |
+| `GATEWAY_MODEL` | `gemini-3.1-flash-lite` (lowercase, case-sensitive) |
 | `GATE_PASSWORD` | the shared password users type at `/login` |
 | `GATE_SECRET` | a random string that signs the session cookie |
 
@@ -51,8 +51,9 @@ This bundle ships a **custom edge-middleware shared-password gate**
   static-site + `api/` serverless-function model that this bundle needs.
 - The login page is served at **`/login.html`** (no clean-URL rewrite), and the
   gate redirects there; the form posts there too.
-- The `/api/query` function can take 10–40 s (reasoning model) — `vercel.json`
-  sets `maxDuration: 60`.
+- The `/api/query` function usually answers in ~2–4 s on `gemini-3.1-flash-lite`
+  (non-reasoning); `vercel.json` keeps `maxDuration: 60` as headroom for cold
+  starts or a slower/reasoning model set via `GATEWAY_MODEL`.
 - Static assets under `/static/*` are intentionally left open so the `/login`
   page can style itself; all content and the API are gated.
 - Re-publishing overwrites this directory; commit and push to redeploy.
