@@ -1,0 +1,23 @@
+# OpenKB config for a playmaker instance, wired for a LiteLLM-compatible
+# gateway (spec: openkb-foundation / "LiteLLM gateway configuration";
+# design.md D6).
+#
+# `playmaker init` copies this into <kb>/.openkb/config.yaml. Edit the model
+# name and headers to match your gateway, then put the secret + base URL in
+# <kb>/.env (see env.example).
+
+# Use the `openai/<name>` LiteLLM id so the request is routed through the
+# OpenAI-compatible gateway given by OPENAI_API_BASE. Replace <model> with the
+# model your gateway exposes. Prefer a capable, current model; reasoning models
+# need a generous token budget (reasoning tokens consume max_tokens).
+model: openai/<model>
+
+language: en
+pageindex_threshold: 20
+
+# Spike gotcha (design.md D6): some gateways' WAFs reject LiteLLM's default
+# User-Agent, which silently breaks compilation. OpenKB forwards these headers
+# to LiteLLM's `extra_headers` on every LLM call. Set a User-Agent the gateway
+# accepts (and any other headers it requires).
+extra_headers:
+  User-Agent: curl/8.4.0

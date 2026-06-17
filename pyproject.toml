@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "playmaker"
+version = "0.1.0"
+description = "A self-maintaining playbook — a non-invasive superset over VectifyAI OpenKB."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "playmaker" }]
+keywords = ["llm", "knowledge-base", "playbook", "openkb", "pageindex"]
+
+# OpenKB is the engine. It is NOT the `openkb` placeholder on PyPI for our
+# purposes — we pin a specific GitHub tag and bump deliberately (see
+# openspec/changes/playmaker/design.md D1). The pinned version is recorded in
+# OPENKB_VERSION below and in playmaker/__init__.py (OPENKB_PIN).
+dependencies = [
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "openkb @ git+https://github.com/VectifyAI/OpenKB.git@v0.4.1",
+]
+
+[project.optional-dependencies]
+# Dev/test deps. The offline test-suite (sidecar, changelog, reconciliation,
+# CLI) does NOT import openkb, so it can be installed and run without the
+# heavy engine dependency tree.
+dev = ["pytest>=7"]
+
+[project.scripts]
+playmaker = "playmaker.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/VectifyAI/OpenKB"
+
+[tool.setuptools]
+packages = ["playmaker"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+playmaker = ["templates/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

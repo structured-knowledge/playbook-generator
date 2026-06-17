@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────
+# What is committed: source + config + templates + tests + docs + openspec.
+# What is NOT (this file): the virtualenv, build/cache artifacts, secrets, and
+# any *deployed playbook instance* (its wiki/raw/state). Instances are data,
+# created per machine/domain with `playmaker init` — keep them OUTSIDE the repo
+# (e.g. ~/playbooks/<domain>). See README "What's in version control".
+# ─────────────────────────────────────────────────────────────────────────
+
+# Python environment & build artifacts
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Secrets — never commit a real instance's credentials
+.env
+**/.env
+
+# Deployed playbook instance data (defensive — instances should live outside
+# the repo, but ignore their markers in case one is created in-tree).
+# `.openkb/` and `.playmaker/` are unambiguous instance directories.
+.openkb/
+.playmaker/
+# An instance created at the repo root (`playmaker init .`): ignore its wiki +
+# raw sources. Anchored to the root so it can't shadow package paths.
+/wiki/
+/raw/
+**/wiki/AGENTS.md.bak
+
+# Local agent/editor config (commit `openspec/`, not this). Delete this line
+# if you want to share the OpenSpec slash-commands with collaborators.
+.claude/
+
+# macOS
+.DS_Store
