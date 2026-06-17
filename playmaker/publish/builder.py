@@ -145,6 +145,22 @@ def _facets(records: list[dict]) -> dict:
     }
 
 
+def group_by_kind(records: list[dict], facets: dict) -> list[dict]:
+    """Group plays into a kind-keyed taxonomy for the vault tree, ordered by the
+    facet order (most common kind first), each group maturity-first then title.
+    Plays with no kind fall into a trailing ``None`` group."""
+    by_kind: dict[str, list[dict]] = {}
+    for r in records:
+        by_kind.setdefault(r.get("kind") or "", []).append(r)
+    groups: list[dict] = []
+    for f in facets["kind"]:
+        k = f["value"]
+        groups.append({"kind": k, "plays": sort_maturity_first(by_kind.get(k, []))})
+    if by_kind.get(""):
+        groups.append({"kind": None, "plays": sort_maturity_first(by_kind[""])})
+    return groups
+
+
 def _to_question(record: dict) -> str:
     """Phrase a play as a natural example question, kind-aware. The first word is
     lowercased unless it's an acronym (AI, TDD), so titles read inside a sentence
@@ -255,10 +271,28 @@ def publish(kb: KB, out_dir: Path) -> PublishResult:
     records, keys = build_records(kb)
     facets = _facets(records)
     examples = seed_questions(records)
+    groups = group_by_kind(records, facets)
 
-    # plays.json — the snapshot contract (search + query function read this).
-    # ``facets``/``examples`` are additive (the query function ignores them); the
-    # existing ``plays`` array and its fields are unchanged.
+    env = Environment(
+        loader=FileSystemLoader(str(_TPL_DIR)),
+        autoescape=select_autoescape(["html"]),
+    )
+    md = MarkdownIt("commonmark", {"linkify": True}).enable("table")
+    titles = {r["key"]: r["title"] for r in records}
+
+    # Enrich each record with the rendered reading-HTML + related panel. The
+    # in-app viewer renders documents from plays.json client-side, so ``body_html``
+    # is carried there too (additive — the query function reads ``body`` and
+    # ignores it). Internal links stay as ``<slug>.html`` so the viewer can
+    # intercept them (open in-pane) while deep links / no-JS still resolve.
+    for r in records:
+        body_md = _rewrite_wikilinks(_body_prose(r["body"]), keys)
+        r["body_html"] = md.render(body_md)
+        r["related"] = _related(r, keys, titles)
+
+    # plays.json — the snapshot contract (viewer + query function read this).
+    # ``facets``/``examples``/``body_html``/``related`` are additive; the query
+    # function only uses ``key``/``title``/``body``.
     data_dir = out / "data"
     data_dir.mkdir(exist_ok=True)
     (data_dir / "plays.json").write_text(
@@ -271,26 +305,18 @@ def publish(kb: KB, out_dir: Path) -> PublishResult:
         encoding="utf-8",
     )
 
-    env = Environment(
-        loader=FileSystemLoader(str(_TPL_DIR)),
-        autoescape=select_autoescape(["html"]),
-    )
-    md = MarkdownIt("commonmark", {"linkify": True}).enable("table")
-    titles = {r["key"]: r["title"] for r in records}
-
     play_tpl = env.get_template("play.html")
     for r in records:
-        body_md = _rewrite_wikilinks(_body_prose(r["body"]), keys)
-        view = dict(r, body_html=md.render(body_md), related=_related(r, keys, titles))
-        (out / r["url"]).write_text(play_tpl.render(play=view), encoding="utf-8")
+        (out / r["url"]).write_text(play_tpl.render(play=r), encoding="utf-8")
 
     index_tpl = env.get_template("index.html")
     (out / "index.html").write_text(
         index_tpl.render(
-            plays=sort_maturity_first(records),
+            groups=groups,
             count=len(records),
             facets=facets,
             examples=examples,
+            title="Playbook",
         ),
         encoding="utf-8",
     )

@@ -1,83 +1,129 @@
-{% extends "base.html" %}
-{% block title %}Playbook — {{ count }} plays{% endblock %}
-{% block content %}
-<section id="command-bar" data-count="{{ count }}">
-  <h1 class="bar-title">Playbook <span class="muted">· {{ count }} plays</span></h1>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — vault</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body class="app">
+<div id="app" data-count="{{ count }}">
 
-  <div class="cmd-wrap">
-    <span class="cmd-icon" aria-hidden="true">⌕</span>
-    <input id="cmd-input" type="search" autocomplete="off"
-           placeholder="Search plays or ask a question…" aria-label="Search plays or ask a question">
-  </div>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="vault">
+      <span class="vault-mark" aria-hidden="true">◆</span>
+      <span class="vault-label">Vault:</span>
+      <span class="vault-name">{{ title }}</span>
+      <span class="vault-meta">· {{ count }} docs · read-only</span>
+    </div>
+    <div class="tab" id="open-tab" hidden>
+      <span class="tab-icon" aria-hidden="true">¶</span>
+      <span class="tab-title" id="tab-title"></span>
+      <button class="tab-close" id="close-tab" title="Close document" aria-label="Close document">✕</button>
+    </div>
+    <div class="topbar-tools">
+      <button class="pane-toggle" id="toggle-left" title="Toggle taxonomy">☰</button>
+      <button class="pane-toggle" id="toggle-right" title="Toggle assistant">✦</button>
+    </div>
+  </header>
 
-  {# Ask action — always visible while the bar is non-empty (design.md D2). #}
-  <div id="ask-row" hidden>
-    <button id="ask-trigger" type="button">
-      <span class="ret" aria-hidden="true">↵</span>
-      Ask the playbook: <span id="ask-query" class="ask-query"></span>
-      <span class="ask-go">Ask →</span>
-    </button>
-  </div>
+  <!-- Three panes -->
+  <main class="panes">
 
-  {# Seeded example questions — shown on the empty bar (design.md D4). #}
-  {% if examples %}
-  <div id="examples">
-    <span class="examples-lead">Ask anything ▸</span>
-    {% for q in examples %}
-    <button class="example" type="button" data-q="{{ q }}">{{ q }}</button>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {# Facet chips with live counts (design.md D3). #}
-  <div id="facets">
-    <button id="facet-toggle" type="button" aria-expanded="false" aria-controls="facet-groups">Filters ▾</button>
-    <div id="facet-groups">
-      <div class="facet-row">
-        <button class="chip is-active" type="button" data-facet="kind" data-value="">all</button>
-        {% for f in facets.kind %}
-        <button class="chip" type="button" data-facet="kind" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
-        {% endfor %}
+    <!-- LEFT: taxonomy + tags -->
+    <aside class="pane pane-left" id="pane-left">
+      <div class="pane-head">
+        <span>Taxonomy</span>
+        <button class="icon-btn" id="collapse-left" title="Collapse" aria-label="Collapse">«</button>
       </div>
-      {% if facets.maturity or facets.contested %}
-      <div class="facet-row">
-        {% for f in facets.maturity %}
-        <button class="chip" type="button" data-facet="maturity" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
-        {% endfor %}
-        {% if facets.contested %}
-        <button class="chip warn" type="button" data-facet="contested" data-value="1">⚠ contested <span class="ct">{{ facets.contested }}</span></button>
+      <div class="pane-scroll">
+        <nav id="taxonomy">
+          {% for g in groups %}
+          <section class="tax-group" data-kind="{{ g.kind or 'other' }}">
+            <button class="tax-group-head" aria-expanded="true">
+              <span class="caret">▾</span>{{ (g.kind or "other")|upper }}
+              <span class="tax-count">{{ g.plays|length }}</span>
+            </button>
+            <ul class="tax-list">
+              {% for p in g.plays %}
+              <li>
+                <a class="tax-item" href="{{ p.url }}" data-key="{{ p.key }}"
+                   data-maturity="{{ p.maturity or '' }}" data-contested="{{ '1' if p.contested else '' }}">
+                  <span class="tax-dot {{ p.maturity or '' }}{{ ' contested' if p.contested }}"></span>{{ p.title }}
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </section>
+          {% endfor %}
+        </nav>
+        {% if facets.maturity or facets.contested %}
+        <div id="system-tags">
+          <div class="pane-subhead">System Tags</div>
+          {% for f in facets.maturity %}
+          <button class="tag" data-tagtype="maturity" data-tagvalue="{{ f.value }}">#{{ f.value }}</button>
+          {% endfor %}
+          {% if facets.contested %}
+          <button class="tag warn" data-tagtype="contested" data-tagvalue="1">#contested</button>
+          {% endif %}
+          <button class="tag clear-tag" id="clear-tag" hidden>clear ✕</button>
+        </div>
         {% endif %}
       </div>
-      {% endif %}
-      {% if facets.tool %}
-      <div class="facet-row tools">
-        {% for f in facets.tool %}
-        <button class="chip" type="button" data-facet="tool" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
-        {% endfor %}
+    </aside>
+
+    <!-- CENTER: viewer -->
+    <section class="pane pane-center" id="pane-center">
+      <div class="viewer-bar">
+        <span class="locked-badge" id="viewer-status">LOCKED SOURCE</span>
+        <div class="viewer-search">
+          <input type="search" id="viewer-search" placeholder="Search in document…" aria-label="Search in document" disabled>
+        </div>
       </div>
-      {% endif %}
-    </div>
-  </div>
-</section>
+      <div class="pane-scroll" id="viewer-scroll">
+        <div id="viewer-empty" class="viewer-empty">
+          <div class="empty-mark">◆</div>
+          <h2>{{ title }}</h2>
+          <p>Select a document from the taxonomy, or ask the assistant — cited
+             sources open here and jump to the referenced passage.</p>
+        </div>
+        <article id="viewer-body" class="viewer-body" hidden></article>
+      </div>
+      <div class="viewer-actions" id="viewer-actions" hidden>
+        <button class="action" id="copy-link">⧉ Copy link</button>
+        <button class="action" id="open-source" hidden>↗ Open full page</button>
+      </div>
+    </section>
 
-{# Ask answer / progress panel (design.md ④–⑥). JS-driven. #}
-<section id="ask-view" hidden>
-  <button id="back-to-plays" type="button" class="back">◂ back to plays</button>
-  <div id="ask-answer" class="ask-answer"></div>
-</section>
+    <!-- RIGHT: assistant -->
+    <aside class="pane pane-right" id="pane-right">
+      <div class="pane-head"><span>Assistant</span></div>
+      <div class="chat-log" id="chat-log">
+        <div class="chat-intro" id="chat-intro">
+          <p>Ask across all {{ count }} documents. Answers cite their sources;
+             click a citation to open and highlight it.</p>
+          {% if examples %}
+          <div id="chat-examples">
+            {% for q in examples %}
+            <button class="chat-example" data-q="{{ q }}">{{ q }}</button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <form class="chat-input-row" id="chat-form">
+        <textarea id="chat-input" rows="1" placeholder="Ask the vault…" aria-label="Ask the vault"></textarea>
+        <button type="submit" id="chat-send" title="Send">↑</button>
+      </form>
+    </aside>
+  </main>
 
-<div id="browse-view">
-  <div id="result-meta" class="result-meta">plays <span class="muted">· by maturity</span></div>
-  <ul id="play-list" class="play-list">
-    {% for p in plays %}
-    <li class="play-item">
-      <a class="play-title" href="{{ p.url }}">{{ p.title }}</a>
-      {% if p.kind %}<span class="badge kind">{{ p.kind }}</span>{% endif %}
-      {% if p.maturity %}<span class="badge maturity {{ p.maturity }}">{{ p.maturity }}</span>{% endif %}
-      {% if p.contested %}<span class="badge contested">⚠ contested</span>{% endif %}
-      {% if p.why %}<p class="why-line">{{ p.why }}</p>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
+  <!-- Status bar -->
+  <footer class="statusbar" id="statusbar">
+    <span class="status-label">Ready.</span>
+  </footer>
 </div>
-{% endblock %}
+<script src="static/vault-app.js"></script>
+</body>
+</html>

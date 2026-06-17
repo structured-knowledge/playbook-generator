@@ -26,11 +26,12 @@ def test_publish_emits_pages_index_data_and_static(kb, tmp_path):
     assert (out / "index.html").exists()
     assert (out / "data" / "plays.json").exists()
     assert (out / "static" / "style.css").exists()
-    assert (out / "static" / "command-bar.js").exists()
+    assert (out / "static" / "vault-app.js").exists()
 
     index = (out / "index.html").read_text()
-    assert index.count('class="play-item"') == 2
-    assert 'id="command-bar"' in index  # unified browse + ask surface
+    # 3-pane vault app shell: taxonomy tree lists every play as a tax-item
+    assert index.count('class="tax-item"') == 2
+    assert 'id="app"' in index and 'id="taxonomy"' in index
 
 
 def test_bundle_is_deploy_complete(kb, tmp_path):
