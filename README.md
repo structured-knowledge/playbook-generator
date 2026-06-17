@@ -89,6 +89,18 @@ playmaker plays --kind procedure --tool "coding agent" --maturity established
 
 `<play>` accepts a slug (`tdd`) or full key (`concepts/tdd`).
 
+## Publish to the web
+
+`playmaker publish --kb-dir <kb-root> --out ./site` renders a read-only static
+snapshot — one page per play, a unified search/ask command bar, faceted browse,
+and a grounded **Ask** (`/api/query`) function — then deploy `./site` to Vercel
+behind a shared-password gate. publish is read-only over the wiki, so it also
+works on a **plain OpenKB wiki** (play metadata just renders empty).
+
+- Bundle deploy notes: [`playmaker/publish/deploy/DEPLOY.md`](playmaker/publish/deploy/DEPLOY.md)
+- **Step-by-step agent runbook** (publish an existing OpenKB + deploy to Vercel,
+  with verification and failure modes): [`docs/deploy-existing-openkb.md`](docs/deploy-existing-openkb.md)
+
 ## The LiteLLM gateway
 
 playmaker routes the LLM through a LiteLLM-compatible gateway:
