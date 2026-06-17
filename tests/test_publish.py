@@ -26,10 +26,11 @@ def test_publish_emits_pages_index_data_and_static(kb, tmp_path):
     assert (out / "index.html").exists()
     assert (out / "data" / "plays.json").exists()
     assert (out / "static" / "style.css").exists()
-    assert (out / "static" / "search.js").exists()
+    assert (out / "static" / "command-bar.js").exists()
 
     index = (out / "index.html").read_text()
     assert index.count('class="play-item"') == 2
+    assert 'id="command-bar"' in index  # unified browse + ask surface
 
 
 def test_bundle_is_deploy_complete(kb, tmp_path):
@@ -65,6 +66,29 @@ def test_plays_json_contract(kb, tmp_path):
     assert rec["url"] == "alpha.html"
     # body is carried for search + the query function
     assert rec["body"]
+
+
+def test_plays_json_carries_facets_and_examples(kb, tmp_path):
+    write_play(kb, "alpha", title="Alpha", kind="procedure", why="It compounds.")
+    write_play(kb, "beta", title="Beta", kind="principle")
+    sc = Sidecar.load(kb.sidecar_path)
+    sc.set_maturity("concepts/alpha", "established")
+    sc.set_maturity("concepts/beta", "emerging")
+    sc.save()
+
+    publish(kb, tmp_path / "site")
+    data = json.loads((tmp_path / "site" / "data" / "plays.json").read_text())
+
+    # Additive: the plays array and its fields are unchanged.
+    assert len(data["plays"]) == 2
+    # Per-facet counts the index renders as chips.
+    kinds = {f["value"]: f["count"] for f in data["facets"]["kind"]}
+    assert kinds == {"procedure": 1, "principle": 1}
+    # Maturity facet follows established-first order.
+    assert [f["value"] for f in data["facets"]["maturity"]] == ["established", "emerging"]
+    # Seeded questions are derived from the corpus.
+    assert data["examples"]
+    assert any("Alpha".lower() in q.lower() for q in data["examples"])
 
 
 def test_wikilinks_rewritten_and_flattened(kb, tmp_path):

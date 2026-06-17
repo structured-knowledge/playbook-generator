@@ -1,16 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Playbook — {{ count }} plays{% endblock %}
 {% block content %}
-<section class="ask">
-  <form id="ask-form">
-    <textarea id="ask-input" rows="2" placeholder="Ask the playbook a question…" aria-label="Ask the playbook"></textarea>
-    <button type="submit">Ask</button>
-  </form>
-  <div id="ask-answer" class="ask-answer" hidden></div>
+<section id="command-bar" data-count="{{ count }}">
+  <h1 class="bar-title">Playbook <span class="muted">· {{ count }} plays</span></h1>
+
+  <div class="cmd-wrap">
+    <span class="cmd-icon" aria-hidden="true">⌕</span>
+    <input id="cmd-input" type="search" autocomplete="off"
+           placeholder="Search plays or ask a question…" aria-label="Search plays or ask a question">
+  </div>
+
+  {# Ask action — always visible while the bar is non-empty (design.md D2). #}
+  <div id="ask-row" hidden>
+    <button id="ask-trigger" type="button">
+      <span class="ret" aria-hidden="true">↵</span>
+      Ask the playbook: <span id="ask-query" class="ask-query"></span>
+      <span class="ask-go">Ask →</span>
+    </button>
+  </div>
+
+  {# Seeded example questions — shown on the empty bar (design.md D4). #}
+  {% if examples %}
+  <div id="examples">
+    <span class="examples-lead">Ask anything ▸</span>
+    {% for q in examples %}
+    <button class="example" type="button" data-q="{{ q }}">{{ q }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Facet chips with live counts (design.md D3). #}
+  <div id="facets">
+    <button id="facet-toggle" type="button" aria-expanded="false" aria-controls="facet-groups">Filters ▾</button>
+    <div id="facet-groups">
+      <div class="facet-row">
+        <button class="chip is-active" type="button" data-facet="kind" data-value="">all</button>
+        {% for f in facets.kind %}
+        <button class="chip" type="button" data-facet="kind" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
+        {% endfor %}
+      </div>
+      {% if facets.maturity or facets.contested %}
+      <div class="facet-row">
+        {% for f in facets.maturity %}
+        <button class="chip" type="button" data-facet="maturity" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
+        {% endfor %}
+        {% if facets.contested %}
+        <button class="chip warn" type="button" data-facet="contested" data-value="1">⚠ contested <span class="ct">{{ facets.contested }}</span></button>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if facets.tool %}
+      <div class="facet-row tools">
+        {% for f in facets.tool %}
+        <button class="chip" type="button" data-facet="tool" data-value="{{ f.value }}">{{ f.value }} <span class="ct">{{ f.count }}</span></button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
 </section>
-<div id="default-view">
-  <h1>Playbook <span class="muted">· {{ count }} plays</span></h1>
-  <ul class="play-list">
+
+{# Ask answer / progress panel (design.md ④–⑥). JS-driven. #}
+<section id="ask-view" hidden>
+  <button id="back-to-plays" type="button" class="back">◂ back to plays</button>
+  <div id="ask-answer" class="ask-answer"></div>
+</section>
+
+<div id="browse-view">
+  <div id="result-meta" class="result-meta">plays <span class="muted">· by maturity</span></div>
+  <ul id="play-list" class="play-list">
     {% for p in plays %}
     <li class="play-item">
       <a class="play-title" href="{{ p.url }}">{{ p.title }}</a>

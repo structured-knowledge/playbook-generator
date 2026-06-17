@@ -27,6 +27,10 @@ _STATIC_DIR = Path(__file__).parent / "static"
 _API_DIR = Path(__file__).parent / "api"
 _DEPLOY_DIR = Path(__file__).parent / "deploy"
 
+# Maturity ordering for the maturity-first list view (established first),
+# mirroring ``cli.py:plays_cmd``; see ``MATURITY_VALUES`` in sidecar.py.
+_MATURITY_ORDER = ("established", "emerging", "experimental")
+
 _WIKILINK = re.compile(r"\[\[([^\]\|]+)(?:\|([^\]]*))?\]\]")
 _H1 = re.compile(r"^\s*#\s+.+$")
 _H2 = re.compile(r"^\s*##\s+")
@@ -97,6 +101,93 @@ def build_records(kb: KB) -> tuple[list[dict], set[str]]:
     return records, keys
 
 
+def _maturity_rank(record: dict) -> int:
+    """Established < emerging < experimental < (unset), matching the CLI."""
+    try:
+        return _MATURITY_ORDER.index(record.get("maturity"))
+    except ValueError:
+        return len(_MATURITY_ORDER)
+
+
+def sort_maturity_first(records: list[dict]) -> list[dict]:
+    """Order plays maturity-first then title — the `cli.py:plays_cmd` ordering."""
+    return sorted(records, key=lambda r: (_maturity_rank(r), r["title"].lower()))
+
+
+def _facets(records: list[dict]) -> dict:
+    """Per-facet value counts the index renders as chips. ``kind`` and ``tool``
+    are ordered by count (desc) then name; ``maturity`` follows the canonical
+    established-first order so the chips line up with the list sort."""
+    kind: dict[str, int] = {}
+    maturity: dict[str, int] = {}
+    tool: dict[str, int] = {}
+    for r in records:
+        if r.get("kind"):
+            kind[r["kind"]] = kind.get(r["kind"], 0) + 1
+        if r.get("maturity"):
+            maturity[r["maturity"]] = maturity.get(r["maturity"], 0) + 1
+        for t in r.get("tool_categories") or []:
+            tool[t] = tool.get(t, 0) + 1
+
+    def by_count(counts: dict[str, int]) -> list[dict]:
+        return [
+            {"value": v, "count": c}
+            for v, c in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
+        ]
+
+    return {
+        "kind": by_count(kind),
+        "maturity": [
+            {"value": m, "count": maturity[m]} for m in _MATURITY_ORDER if m in maturity
+        ],
+        "tool": by_count(tool),
+        "contested": sum(1 for r in records if r.get("contested")),
+    }
+
+
+def _to_question(record: dict) -> str:
+    """Phrase a play as a natural example question, kind-aware. The first word is
+    lowercased unless it's an acronym (AI, TDD), so titles read inside a sentence
+    without mangling capitalized terms."""
+    title = (record.get("title") or "").strip()
+    if not title:
+        return ""
+    first = title.split(" ", 1)[0]
+    if not (first.isupper() and len(first) > 1):
+        title = title[:1].lower() + title[1:]
+    if (record.get("kind") or "").lower() == "procedure":
+        return f"How do I {title}?"
+    return f"What's the playbook's take on {title}?"
+
+
+def seed_questions(records: list[dict], limit: int = 3) -> list[str]:
+    """A few example questions derived from the corpus at build time so the empty
+    command bar is primed and the examples never drift from the plays. Prefers
+    the most mature plays and spreads across kinds for variety."""
+    ordered = sort_maturity_first(records)
+    picked: list[str] = []
+    seen_kind: set[str] = set()
+    # Pass 1: at most one per kind (maturity-first) for variety.
+    for r in ordered:
+        if len(picked) >= limit:
+            break
+        kind = r.get("kind") or ""
+        if kind in seen_kind:
+            continue
+        q = _to_question(r)
+        if q and q not in picked:
+            picked.append(q)
+            seen_kind.add(kind)
+    # Pass 2: fill any remaining slots from the top.
+    for r in ordered:
+        if len(picked) >= limit:
+            break
+        q = _to_question(r)
+        if q and q not in picked:
+            picked.append(q)
+    return picked
+
+
 def _body_prose(body: str) -> str:
     """Return the substantive prose: drop the H1, the ``**Kind:**`` line, the
     ``> **Why:**`` blockquote, and the ``## Tools`` / ``## Related`` sections —
@@ -162,12 +253,21 @@ def publish(kb: KB, out_dir: Path) -> PublishResult:
     out.mkdir(parents=True, exist_ok=True)
 
     records, keys = build_records(kb)
+    facets = _facets(records)
+    examples = seed_questions(records)
 
     # plays.json — the snapshot contract (search + query function read this).
+    # ``facets``/``examples`` are additive (the query function ignores them); the
+    # existing ``plays`` array and its fields are unchanged.
     data_dir = out / "data"
     data_dir.mkdir(exist_ok=True)
     (data_dir / "plays.json").write_text(
-        json.dumps({"plays": records}, indent=2, ensure_ascii=False) + "\n",
+        json.dumps(
+            {"plays": records, "facets": facets, "examples": examples},
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -186,7 +286,13 @@ def publish(kb: KB, out_dir: Path) -> PublishResult:
 
     index_tpl = env.get_template("index.html")
     (out / "index.html").write_text(
-        index_tpl.render(plays=records, count=len(records)), encoding="utf-8"
+        index_tpl.render(
+            plays=sort_maturity_first(records),
+            count=len(records),
+            facets=facets,
+            examples=examples,
+        ),
+        encoding="utf-8",
     )
 
     shutil.copytree(_STATIC_DIR, out / "static", dirs_exist_ok=True)
