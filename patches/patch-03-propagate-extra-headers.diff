@@ -1,0 +1,20 @@
+--- a/openkb/config.py	2026-06-23 20:46:27
++++ b/openkb/config.py	2026-06-23 20:46:27
+@@ -148,6 +148,17 @@
+     """Set the process-wide extra headers for LLM requests."""
+     global _runtime_extra_headers
+     _runtime_extra_headers = dict(headers)
++    # LOCAL PATCH: also push into LiteLLM's global header hook so direct
++    # callers that don't thread get_extra_headers() through — notably
++    # pageindex.utils.llm_completion/llm_acompletion — pick up the same
++    # User-Agent override needed to clear the Cloudflare WAF in front of
++    # litellm.tzetang.com. See LOCAL_PATCHES.md.
++    if headers:
++        try:
++            import litellm
++            litellm.headers = {**(litellm.headers or {}), **headers}
++        except Exception:
++            pass
+ 
+ 
+ def get_extra_headers() -> dict[str, str]:

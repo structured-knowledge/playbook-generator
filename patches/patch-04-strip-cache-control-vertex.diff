@@ -1,0 +1,51 @@
+--- a/openkb/agent/compiler.py	2026-06-23 20:46:27
++++ b/openkb/agent/compiler.py	2026-06-23 20:46:27
+@@ -262,7 +262,32 @@
+     """
+     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+ 
++
++def _strip_cache_control_for_vertex(model: str, messages: list[dict]) -> list[dict]:
++    """LOCAL PATCH: drop Anthropic-style ``cache_control`` markers for
++    gemini/Vertex models.
+ 
++    Vertex tries to honor the marker as a context-caching request and 400s
++    when the tagged block is under its 4096-token caching minimum
++    ("The cached content is of N tokens. The minimum token count to start
++    caching is 4096."). Anthropic-only feature, harmless to drop elsewhere;
++    we only strip it for gemini/vertex so other providers keep caching.
++    See LOCAL_PATCHES.md.
++    """
++    if not model or not any(p in model.lower() for p in ("gemini", "vertex")):
++        return messages
++    cleaned = []
++    for msg in messages:
++        content = msg.get("content")
++        if isinstance(content, list):
++            blocks = [{k: v for k, v in b.items() if k != "cache_control"}
++                      if isinstance(b, dict) else b for b in content]
++            cleaned.append({**msg, "content": blocks})
++        else:
++            cleaned.append(msg)
++    return cleaned
++
++
+ class _Spinner:
+     """Animated dots spinner that runs in a background thread."""
+ 
+@@ -323,6 +348,7 @@
+ 
+ def _llm_call(model: str, messages: list[dict], step_name: str, **kwargs) -> str:
+     """Single LLM call with animated progress and debug logging."""
++    messages = _strip_cache_control_for_vertex(model, messages)
+     extra_headers = get_extra_headers()
+     if extra_headers:
+         kwargs.setdefault("extra_headers", extra_headers)
+@@ -345,6 +371,7 @@
+ 
+ async def _llm_call_async(model: str, messages: list[dict], step_name: str, **kwargs) -> str:
+     """Async LLM call with timing output and debug logging."""
++    messages = _strip_cache_control_for_vertex(model, messages)
+     extra_headers = get_extra_headers()
+     if extra_headers:
+         kwargs.setdefault("extra_headers", extra_headers)

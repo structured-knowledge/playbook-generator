@@ -1,0 +1,55 @@
+--- a/openkb/cli.py	2026-06-23 20:46:27
++++ b/openkb/cli.py	2026-06-23 20:46:27
+@@ -39,6 +39,52 @@
+ 
+ import litellm
+ litellm.suppress_debug_info = True
++
++# --- OpenKB local-patch: bound outbound LLM connections + timeouts ---
++# The bundled `pageindex` library fans out unbounded `asyncio.gather()` LLM
++# calls (one per node/TOC-item) with no HTTP-client cleanup, and litellm caches
++# its async client per event loop. Without a cap this opens hundreds of sockets
++# that queue and never drain (CLOSE-WAIT pile-up). litellm honors these
++# module-level httpx sessions for OpenAI-compatible providers
++# (litellm/llms/openai/common_utils.py), so the Limits/Timeout below govern
++# every compile + PageIndex call.
++#
++# Three settings prevent the *permanent hang* observed on long-doc ingest
++# (a single LLM request wedged — Cloudflare holding a connection open, or the
++# proxy half-closing it into CLOSE_WAIT — froze the whole run for hours while
++# holding the ingest lock):
++#   * max_keepalive_connections=0 — never reuse a pooled connection, so a
++#     server-closed (CLOSE_WAIT) socket can't be handed to the next request and
++#     hang; each call gets a fresh connection that's closed when done (no leak).
++#   * pool=60 (NOT None) — bound the wait to *acquire* a connection. With
++#     pool=None a leaked/wedged connection that fills the pool made the next
++#     request wait forever (the event loop idled in kqueue with no timer); now
++#     it raises PoolTimeout after 60s and litellm retries.
++#   * max_connections=2 — one wedged connection no longer starves the whole
++#     pipeline; a second is available while the bad one is reaped. Safe for the
++#     single-slot Qwen backend too (keepalive=0 + the cap prevent any pile-up).
++import httpx as _httpx
++_openkb_llm_limits = _httpx.Limits(max_connections=2, max_keepalive_connections=0)
++_openkb_llm_timeout = _httpx.Timeout(connect=30.0, read=300.0, write=300.0, pool=60.0)
++if getattr(litellm, "aclient_session", None) is None:
++    litellm.aclient_session = _httpx.AsyncClient(
++        limits=_openkb_llm_limits, timeout=_openkb_llm_timeout
++    )
++if getattr(litellm, "client_session", None) is None:
++    litellm.client_session = _httpx.Client(
++        limits=_openkb_llm_limits, timeout=_openkb_llm_timeout
++    )
++# Bound each LLM call to 300s. litellm's OpenAI SDK path applies its own
++# per-request timeout that overrides the http_client's, so the client timeout
++# above is not enough — without this, a hung/half-closed (CLOSE_WAIT) connection
++# hangs ~6000s (litellm's default) before retrying. Must be a plain float:
++# litellm coerces request_timeout via float(), so an httpx.Timeout is rejected.
++# Caveat: a float also bounds httpx's pool-wait, so pageindex's deep TOC fan-out
++# (many calls queued behind the single connection) may pool-timeout on a slow
++# backend; raise this if that phase thrashes.
++litellm.request_timeout = 300
++# --- end OpenKB local-patch ---
++
+ from dotenv import load_dotenv
+ 
+ from openkb.config import (

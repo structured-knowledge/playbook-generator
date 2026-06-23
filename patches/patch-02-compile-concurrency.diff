@@ -1,0 +1,11 @@
+--- a/openkb/agent/compiler.py	2026-06-23 20:46:27
++++ b/openkb/agent/compiler.py	2026-06-23 20:46:27
+@@ -1379,7 +1379,7 @@
+ # Public API
+ # ---------------------------------------------------------------------------
+ 
+-DEFAULT_COMPILE_CONCURRENCY = 5
++DEFAULT_COMPILE_CONCURRENCY = 1  # OpenKB local-patch: was 5; serialize compile to match single-slot backend
+ 
+ 
+ def _format_known_targets(targets: set[str]) -> str:
